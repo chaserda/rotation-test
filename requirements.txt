@@ -3,5 +3,6 @@ pillow
 numpy
 python-dotenv
 google-genai
-opencv-python 
+openai
+anthropic
 pydantic
