@@ -1,16 +1,16 @@
-"""Video preprocessing: sample JPEG frames (no tracking / optical flow)."""
+# Video preprocessing: sample JPEG frames (no tracking / optical flow).
 
 from __future__ import annotations
 
 import cv2
 
 
+# Decode/sample/resize only. Returns JPEG byte strings.
 def extract_frames(
     video_path: str,
     fps_target: float = 5.0,
     max_width: int = 640,
 ) -> list[bytes]:
-    """Decode/sample/resize only. Returns JPEG byte strings."""
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         raise RuntimeError(f"Could not open video: {video_path}")

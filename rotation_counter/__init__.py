@@ -1,1 +1,1 @@
-"""LLM-based rotation counter."""
+# LLM-based rotation counter.

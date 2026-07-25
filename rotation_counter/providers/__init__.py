@@ -1,4 +1,4 @@
-"""Register VLM backends here. Add a provider = one file + one line below."""
+# Register VLM backends here. Add a provider = one file + one line below.
 
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ PROVIDERS = {
 }
 
 
+# Look up a registered provider by name.
 def get_provider(name: str):
     key = name.lower().strip()
     if key not in PROVIDERS:
@@ -20,5 +21,6 @@ def get_provider(name: str):
     return PROVIDERS[key]
 
 
+# Sorted provider names for CLI choices.
 def provider_names() -> list[str]:
     return sorted(PROVIDERS)

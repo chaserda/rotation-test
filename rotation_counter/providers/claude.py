@@ -1,4 +1,4 @@
-"""Anthropic Claude vision provider."""
+# Anthropic Claude vision provider.
 
 from __future__ import annotations
 

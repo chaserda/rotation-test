@@ -1,4 +1,4 @@
-"""Google Gemini vision provider."""
+# Google Gemini vision provider.
 
 from __future__ import annotations
 

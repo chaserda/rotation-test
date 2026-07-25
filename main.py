@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
-"""
-Count full 360° rotations in a video.
-
-  python main.py videos/5rotationsTest.mp4
-  python main.py videos/5rotationsTest.mp4 --provider openai
-  python main.py videos/1.5rotationsTest.mp4 --provider claude --batch
-"""
+# Count full 360° rotations in a video.
+#
+#   python main.py videos/5rotationsTest.mp4
+#   python main.py videos/5rotationsTest.mp4 --provider openai
+#   python main.py videos/1.5rotationsTest.mp4 --provider claude --batch
 
 from __future__ import annotations
 
@@ -14,7 +12,7 @@ import os
 
 from dotenv import load_dotenv
 
-from rotation_counter.count import count_rotations
+from rotation_counter.count import measure_spin
 from rotation_counter.extract import extract_frames
 from rotation_counter.providers import get_provider, provider_names
 from rotation_counter.vlm import classify_batched, classify_parallel, close_open_lap
@@ -22,7 +20,8 @@ from rotation_counter.vlm import classify_batched, classify_parallel, close_open
 load_dotenv()
 
 
-def analyze(video_path: str, provider_name: str, *, batch: bool = False) -> int:
+# Extract frames, classify with a VLM, finalize open laps, return spin result.
+def analyze(video_path: str, provider_name: str, *, batch: bool = False):
     provider = get_provider(provider_name)
     model = provider.default_model()
 
@@ -37,17 +36,16 @@ def analyze(video_path: str, provider_name: str, *, batch: bool = False) -> int:
         print("[*] Batch mode: fewer API calls, less precise")
         labels = classify_batched(frames, provider, model)
     else:
-        # Default: one face-first call per frame, in parallel.
         labels = classify_parallel(frames, provider, model)
 
     print(f"[*] Labels: {labels}")
-
     labels = close_open_lap(frames, labels, provider, model)
     print(f"[*] Labels after finalize: {labels}")
 
-    return count_rotations(labels)
+    return measure_spin(labels)
 
 
+# CLI entrypoint.
 def main() -> None:
     names = provider_names()
     parser = argparse.ArgumentParser(description="Count full rotations in a video")
@@ -60,13 +58,17 @@ def main() -> None:
     parser.add_argument(
         "--batch",
         action="store_true",
-        help="Cheaper sequential batches (slower wall-clock, less precise)",
+        help="Cheaper sequential batches (less precise)",
     )
     args = parser.parse_args()
 
-    result = analyze(args.video, args.provider, batch=args.batch)
-    print(f"\n>>> FINAL ROTATION COUNT: {result} <<<")
-    print(result)
+    spin = analyze(args.video, args.provider, batch=args.batch)
+    print(
+        f"\n>>> FULL ROTATIONS: {spin.full_rotations}  |  "
+        f"DEGREES: {spin.degrees}°  |  TRICK: {spin.trick} <<<"
+    )
+    print(spin.full_rotations)
+    print(spin.degrees)
 
 
 if __name__ == "__main__":

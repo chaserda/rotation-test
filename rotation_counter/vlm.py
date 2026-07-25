@@ -1,4 +1,4 @@
-"""Shared prompts + parallel classify / open-lap recheck (any provider)."""
+# Shared prompts + parallel classify / open-lap recheck (any provider).
 
 from __future__ import annotations
 
@@ -48,6 +48,7 @@ LABEL_SCHEMA = {
 }
 
 
+# Normalize/validate model labels; map left/right/profile → side.
 def normalize_labels(raw: list, expected: int) -> list[str]:
     if len(raw) != expected:
         raise ValueError(f"Expected {expected} labels, got {len(raw)}")
@@ -62,6 +63,7 @@ def normalize_labels(raw: list, expected: int) -> list[str]:
     return out
 
 
+# Parallel worker count from CLASSIFY_WORKERS (default 8).
 def _workers(default: int = 8) -> int:
     raw = os.getenv("CLASSIFY_WORKERS")
     if not raw:
@@ -72,6 +74,7 @@ def _workers(default: int = 8) -> int:
         return default
 
 
+# Classify every frame alone in parallel (face-first).
 def classify_parallel(
     frames: list[bytes],
     provider,
@@ -79,12 +82,6 @@ def classify_parallel(
     *,
     workers: int | None = None,
 ) -> list[str]:
-    """
-    Classify every frame alone, in parallel, with the face-first prompt.
-
-    This is both precise (no batch neighbor-smoothing) and fast (wall-clock
-    overlaps API latency). No second-pass key-frame recheck needed.
-    """
     if not frames:
         return []
 
@@ -116,6 +113,7 @@ def classify_parallel(
     return list(labels)  # type: ignore[arg-type]
 
 
+# Sequential batched classify (cheaper API usage, less precise).
 def classify_batched(
     frames: list[bytes],
     provider,
@@ -123,7 +121,6 @@ def classify_batched(
     *,
     batch_size: int | None = None,
 ) -> list[str]:
-    """Sequential batched classify (cheaper API usage, less precise)."""
     if not frames:
         return []
 
@@ -138,6 +135,8 @@ def classify_batched(
     return labels
 
 
+# If a lap is open and the clip does not end on back, re-check the last
+# few non-back frames (in parallel).
 def close_open_lap(
     frames: list[bytes],
     orientations: list[str],
@@ -145,10 +144,6 @@ def close_open_lap(
     model: str,
     lookback: int = 4,
 ) -> list[str]:
-    """
-    If a lap is open and the clip does not end on back, re-check the last
-    few non-back frames (in parallel).
-    """
     if not has_open_lap(orientations):
         return orientations
     if orientations[-1] == "back":

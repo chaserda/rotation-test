@@ -1,4 +1,4 @@
-"""OpenAI vision provider."""
+# OpenAI vision provider.
 
 from __future__ import annotations
 
@@ -18,8 +18,8 @@ class OpenAIProvider:
     def __init__(self) -> None:
         self._client = None
 
+    # gpt-4o-mini often keeps a low free-tier RPD even after adding credits.
     def default_model(self) -> str:
-        # gpt-4o-mini often keeps a low free-tier RPD even after adding credits.
         return os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
 
     def _get_client(self):
