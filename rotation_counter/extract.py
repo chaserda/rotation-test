@@ -7,7 +7,7 @@ import cv2
 
 def extract_frames(
     video_path: str,
-    fps_target: float = 4.0,
+    fps_target: float = 5.0,
     max_width: int = 640,
 ) -> list[bytes]:
     """Decode/sample/resize only. Returns JPEG byte strings."""

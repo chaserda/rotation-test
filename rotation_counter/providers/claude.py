@@ -12,11 +12,24 @@ from rotation_counter.vlm import BATCH_PROMPT, LABEL_SCHEMA, normalize_labels
 
 class ClaudeProvider:
     name = "claude"
-    batch_size = 4
+    batch_size = 2
     pause_seconds = 0.75
+
+    def __init__(self) -> None:
+        self._client = None
 
     def default_model(self) -> str:
         return os.getenv("CLAUDE_MODEL", "claude-sonnet-5")
+
+    def _get_client(self):
+        if self._client is None:
+            from anthropic import Anthropic
+
+            key = os.getenv("CLAUDE_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
+            if not key:
+                raise ValueError("Set CLAUDE_API_KEY or ANTHROPIC_API_KEY in .env")
+            self._client = Anthropic(api_key=key)
+        return self._client
 
     def classify_batch(
         self,
@@ -25,13 +38,9 @@ class ClaudeProvider:
         *,
         prompt: str | None = None,
     ) -> list[str]:
-        from anthropic import Anthropic, RateLimitError
+        from anthropic import RateLimitError
 
-        key = os.getenv("CLAUDE_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
-        if not key:
-            raise ValueError("Set CLAUDE_API_KEY or ANTHROPIC_API_KEY in .env")
-
-        client = Anthropic(api_key=key)
+        client = self._get_client()
         n = len(frames)
         text = prompt or BATCH_PROMPT.format(n=n)
 
@@ -49,7 +58,6 @@ class ClaudeProvider:
                 }
             )
 
-        # Force a tool call so Claude returns structured JSON we can parse.
         tools = [
             {
                 "name": "batch_labels",

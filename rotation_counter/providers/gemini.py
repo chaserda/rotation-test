@@ -22,8 +22,21 @@ class GeminiProvider:
     batch_size = 6
     pause_seconds = 0.5
 
+    def __init__(self) -> None:
+        self._client = None
+
     def default_model(self) -> str:
         return os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
+
+    def _get_client(self):
+        if self._client is None:
+            from google import genai
+
+            key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+            if not key:
+                raise ValueError("Set GEMINI_API_KEY or GOOGLE_API_KEY in .env")
+            self._client = genai.Client(api_key=key)
+        return self._client
 
     def classify_batch(
         self,
@@ -32,14 +45,9 @@ class GeminiProvider:
         *,
         prompt: str | None = None,
     ) -> list[str]:
-        from google import genai
         from google.genai import errors, types
 
-        key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-        if not key:
-            raise ValueError("Set GEMINI_API_KEY or GOOGLE_API_KEY in .env")
-
-        client = genai.Client(api_key=key)
+        client = self._get_client()
         n = len(frames)
         text = prompt or BATCH_PROMPT.format(n=n)
         parts = [types.Part.from_bytes(data=b, mime_type="image/jpeg") for b in frames]

@@ -15,9 +15,22 @@ class OpenAIProvider:
     batch_size = 3
     pause_seconds = 1.0
 
+    def __init__(self) -> None:
+        self._client = None
+
     def default_model(self) -> str:
         # gpt-4o-mini often keeps a low free-tier RPD even after adding credits.
         return os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
+
+    def _get_client(self):
+        if self._client is None:
+            from openai import OpenAI
+
+            key = os.getenv("OPENAI_API_KEY")
+            if not key:
+                raise ValueError("Set OPENAI_API_KEY in .env")
+            self._client = OpenAI(api_key=key)
+        return self._client
 
     def classify_batch(
         self,
@@ -26,13 +39,9 @@ class OpenAIProvider:
         *,
         prompt: str | None = None,
     ) -> list[str]:
-        from openai import OpenAI, RateLimitError
+        from openai import RateLimitError
 
-        key = os.getenv("OPENAI_API_KEY")
-        if not key:
-            raise ValueError("Set OPENAI_API_KEY in .env")
-
-        client = OpenAI(api_key=key)
+        client = self._get_client()
         n = len(frames)
         text = prompt or BATCH_PROMPT.format(n=n)
 

@@ -1,8 +1,10 @@
-"""Shared prompts + batch classify / open-lap recheck (any provider)."""
+"""Shared prompts + parallel classify / open-lap recheck (any provider)."""
 
 from __future__ import annotations
 
+import os
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from rotation_counter.count import has_open_lap
 
@@ -60,13 +62,78 @@ def normalize_labels(raw: list, expected: int) -> list[str]:
     return out
 
 
-def classify_all(frames: list[bytes], provider, model: str) -> list[str]:
+def _workers(default: int = 8) -> int:
+    raw = os.getenv("CLASSIFY_WORKERS")
+    if not raw:
+        return default
+    try:
+        return max(1, int(raw))
+    except ValueError:
+        return default
+
+
+def classify_parallel(
+    frames: list[bytes],
+    provider,
+    model: str,
+    *,
+    workers: int | None = None,
+) -> list[str]:
+    """
+    Classify every frame alone, in parallel, with the face-first prompt.
+
+    This is both precise (no batch neighbor-smoothing) and fast (wall-clock
+    overlaps API latency). No second-pass key-frame recheck needed.
+    """
+    if not frames:
+        return []
+
+    n_workers = workers or _workers()
+    print(
+        f"[*] Classifying {len(frames)} frames in parallel "
+        f"(workers={n_workers}, face-first)..."
+    )
+
+    labels: list[str | None] = [None] * len(frames)
+
+    def one(index: int) -> tuple[int, str]:
+        label = provider.classify_batch(
+            [frames[index]], model, prompt=RECHECK_PROMPT
+        )[0]
+        return index, label
+
+    with ThreadPoolExecutor(max_workers=n_workers) as pool:
+        futures = [pool.submit(one, i) for i in range(len(frames))]
+        done = 0
+        for fut in as_completed(futures):
+            index, label = fut.result()
+            labels[index] = label
+            done += 1
+            print(f"    [{done}/{len(frames)}] frame {index}: {label}")
+
+    if any(label is None for label in labels):
+        raise RuntimeError("Parallel classify missed one or more frames")
+    return list(labels)  # type: ignore[arg-type]
+
+
+def classify_batched(
+    frames: list[bytes],
+    provider,
+    model: str,
+    *,
+    batch_size: int | None = None,
+) -> list[str]:
+    """Sequential batched classify (cheaper API usage, less precise)."""
+    if not frames:
+        return []
+
+    size = batch_size or provider.batch_size
     labels: list[str] = []
-    for start in range(0, len(frames), provider.batch_size):
-        batch = frames[start : start + provider.batch_size]
+    for start in range(0, len(frames), size):
+        batch = frames[start : start + size]
         print(f"[*] Classifying frames {start}-{start + len(batch) - 1}...")
         labels.extend(provider.classify_batch(batch, model))
-        if start + provider.batch_size < len(frames):
+        if start + size < len(frames):
             time.sleep(provider.pause_seconds)
     return labels
 
@@ -78,7 +145,10 @@ def close_open_lap(
     model: str,
     lookback: int = 4,
 ) -> list[str]:
-    """Re-check ending frames if a lap is open and not stuck on back."""
+    """
+    If a lap is open and the clip does not end on back, re-check the last
+    few non-back frames (in parallel).
+    """
     if not has_open_lap(orientations):
         return orientations
     if orientations[-1] == "back":
@@ -87,22 +157,23 @@ def close_open_lap(
 
     updated = list(orientations)
     start = max(0, len(frames) - lookback)
-    print(f"[*] Open lap — face-first recheck frames {start}-{len(frames) - 1}...")
+    indices = [i for i in range(start, len(frames)) if updated[i] != "back"]
+    if not indices:
+        return updated
 
-    for i in range(start, len(frames)):
-        if updated[i] == "back":
-            continue
-        try:
-            label = provider.classify_batch(
-                [frames[i]], model, prompt=RECHECK_PROMPT
-            )[0]
-        except Exception as e:
-            print(f"    frame {i}: recheck failed ({e})")
-            continue
-        if label != updated[i]:
-            print(f"    frame {i}: {updated[i]} -> {label}")
-            updated[i] = label
-            if label == "front":
-                break
-        time.sleep(provider.pause_seconds)
+    print(f"[*] Open lap — parallel face-first recheck frames {indices}...")
+
+    def one(index: int) -> tuple[int, str]:
+        label = provider.classify_batch(
+            [frames[index]], model, prompt=RECHECK_PROMPT
+        )[0]
+        return index, label
+
+    with ThreadPoolExecutor(max_workers=min(_workers(), len(indices))) as pool:
+        for fut in as_completed([pool.submit(one, i) for i in indices]):
+            index, label = fut.result()
+            if label != updated[index]:
+                print(f"    frame {index}: {updated[index]} -> {label}")
+                updated[index] = label
+
     return updated
