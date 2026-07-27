@@ -22,6 +22,20 @@ cp .env.example .env
 # add API keys to .env
 ```
 
+## Available videos 
+| Video | Expected count |
+|---|---|
+| `videos/1.5rotationsTest.mp4` | 1 (540°) |
+| `videos/3rotationsTest.mp4` | 3 (1080°) |
+| `videos/5rotationsTest.mp4` | 5 (1800°) |
+
+## Choose a provider 
+
+When running the script you can append a --provider argument with the provider you would like, for example:
+```python main.py videos/3rotationsTest.mp4 --provider openai``` or ```python main.py videos/3rotationsTest.mp4 --provider openai```
+in order to use different providers, you will need to at your API keys to the .env file.
+
+
 ## Run
 
 ```bash
