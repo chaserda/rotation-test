@@ -14,8 +14,7 @@ class SpinResult:
 
 # One FSM pass: full laps + whether a lap is still open + last distinct label.
 # Full rotation = leave front → see back → return to front.
-# Soft start: if the VLM never labeled an opening front, the first front
-# after seeing back still counts as completing a lap (common flash-lite miss).
+# Side alone never completes a lap. Soft "side→…→front" starts do not count.
 def analyze_labels(orientations: list[str]) -> tuple[int, bool, str | None]:
     if not orientations:
         return 0, False, None
@@ -39,7 +38,8 @@ def analyze_labels(orientations: list[str]) -> tuple[int, bool, str | None]:
             seen_back = True
             in_front = False
         elif current == "front":
-            if seen_back and (left_front or not ever_front):
+            # Only front → … → back → … → front closes a lap.
+            if ever_front and left_front and seen_back:
                 count += 1
             ever_front = True
             left_front = False

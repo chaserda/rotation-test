@@ -31,44 +31,42 @@ class TestCountRotations(unittest.TestCase):
         self.assertEqual(spin.full_rotations, 1)
         self.assertEqual(spin.degrees, 360)
 
-    # Gemini often misses the opening front (labels side instead).
-    # side → back → side → front should still count as 1 full.
-    def test_missed_opening_front_still_counts(self) -> None:
+    # Must be front → back → front. Side→front without a prior front does not count.
+    def test_side_back_front_without_opening_front_is_zero(self) -> None:
         seq = [
             "side",
             "side",
-            "side",
-            "side",
             "back",
-            "back",
-            "side",
             "side",
             "front",
             "side",
-            "side",
+            "back",
+        ]
+        spin = measure_spin(seq)
+        self.assertEqual(spin.full_rotations, 0)
+        self.assertEqual(spin.degrees, 180)
+
+    # side ↔ front with no back is never a rotation.
+    def test_side_front_side_not_a_rotation(self) -> None:
+        spin = measure_spin(["side", "front", "side", "front", "side"])
+        self.assertEqual(spin.full_rotations, 0)
+        self.assertEqual(spin.degrees, 0)
+
+    def test_lead_in_then_one_real_lap(self) -> None:
+        # First front only establishes facing; second front closes one lap.
+        seq = [
             "side",
             "back",
+            "side",
+            "front",
+            "side",
             "back",
+            "side",
+            "front",
         ]
         spin = measure_spin(seq)
         self.assertEqual(spin.full_rotations, 1)
-        self.assertEqual(spin.degrees, 540)
-        self.assertTrue(spin.open_lap)
-
-    def test_lead_in_then_two_fronts(self) -> None:
-        seq = [
-            "side",
-            "back",
-            "side",
-            "front",
-            "side",
-            "back",
-            "side",
-            "front",
-        ]
-        spin = measure_spin(seq)
-        self.assertEqual(spin.full_rotations, 2)
-        self.assertEqual(spin.degrees, 720)
+        self.assertEqual(spin.degrees, 360)
 
     def test_open_side_not_counted_as_full(self) -> None:
         seq = ["front", "side", "back", "side", "front", "side", "back", "side"]
