@@ -8,7 +8,7 @@ import time
 
 from pydantic import BaseModel, Field
 
-from rotation_counter.vlm import BATCH_PROMPT, normalize_labels
+from rotation_counter.vlm import RECHECK_PROMPT, normalize_labels
 
 
 class BatchLabels(BaseModel):
@@ -19,8 +19,6 @@ class BatchLabels(BaseModel):
 
 class GeminiProvider:
     name = "gemini"
-    batch_size = 6
-    pause_seconds = 0.5
     # Free tier / flash-lite rate limits hate 8-way parallel.
     max_workers = 3
 
@@ -51,7 +49,7 @@ class GeminiProvider:
 
         client = self._get_client()
         n = len(frames)
-        text = prompt or BATCH_PROMPT.format(n=n)
+        text = prompt or RECHECK_PROMPT
         parts = [types.Part.from_bytes(data=b, mime_type="image/jpeg") for b in frames]
 
         for attempt in range(5):

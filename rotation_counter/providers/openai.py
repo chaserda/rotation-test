@@ -7,13 +7,11 @@ import json
 import os
 import time
 
-from rotation_counter.vlm import BATCH_PROMPT, LABEL_SCHEMA, normalize_labels
+from rotation_counter.vlm import LABEL_SCHEMA, RECHECK_PROMPT, normalize_labels
 
 
 class OpenAIProvider:
     name = "openai"
-    batch_size = 3
-    pause_seconds = 1.0
 
     def __init__(self) -> None:
         self._client = None
@@ -43,7 +41,7 @@ class OpenAIProvider:
 
         client = self._get_client()
         n = len(frames)
-        text = prompt or BATCH_PROMPT.format(n=n)
+        text = prompt or RECHECK_PROMPT
 
         content: list[dict] = [{"type": "text", "text": text}]
         for i, jpeg in enumerate(frames):

@@ -1,6 +1,4 @@
 opencv-python-headless
-pillow
-numpy
 python-dotenv
 google-genai
 openai

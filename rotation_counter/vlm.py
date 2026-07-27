@@ -9,21 +9,6 @@ from rotation_counter.count import has_open_lap
 
 ALLOWED = frozenset({"front", "back", "side"})
 
-BATCH_PROMPT = (
-    "Classify each image of a person who may be rotating.\n"
-    "Decide using the HEAD/FACE first, not the shoulders or lean.\n"
-    "For EVERY image return exactly one of:\n"
-    '- "front": face is visible and oriented toward the camera '
-    "(eyes/nose toward lens). Use front even if shoulders are twisted, "
-    "the person is leaning, or arms are uneven.\n"
-    '- "back": back of the head / no face visible\n'
-    '- "side": clear profile — nose points left or right of the frame, '
-    "and the face is NOT toward the camera\n"
-    "Rule: if you can see the face looking at the camera, answer front.\n"
-    "There are {n} images in order.\n"
-    'Return JSON {{"orientations":[...]}} with exactly {n} labels.'
-)
-
 RECHECK_PROMPT = (
     "Look at the person's HEAD only.\n"
     "Can you see their face looking toward the camera?\n"
