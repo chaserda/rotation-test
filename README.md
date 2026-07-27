@@ -33,7 +33,7 @@ cp .env.example .env
 
 When running the script you can append a --provider argument with the provider you would like, for example:
 ```python main.py videos/3rotationsTest.mp4 --provider openai``` or ```python main.py videos/3rotationsTest.mp4 --provider openai```
-in order to use different providers, you will need to at your API keys to the .env file.
+in order to use different providers, you will need to add your API keys to the .env file.
 
 
 ## Run
