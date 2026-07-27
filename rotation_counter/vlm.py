@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from rotation_counter.count import has_open_lap
@@ -32,6 +31,18 @@ RECHECK_PROMPT = (
     '- If you mainly see the back of the head: "back"\n'
     '- If it is a pure left/right profile with nose pointing sideways: "side"\n'
     "Ignore shoulder angle, lean, and arm position.\n"
+    "Arms out in a T-pose does NOT mean side — use the face.\n"
+    'Return JSON {"orientations":["front|back|side"]} with exactly 1 label.'
+)
+
+OPENING_PROMPT = (
+    "This is an early frame of a person who may start facing the camera.\n"
+    "Look at the HEAD/FACE only.\n"
+    '- "front": you can see the face / eyes toward the camera '
+    "(even if arms are stretched out in a T-pose)\n"
+    '- "back": back of the head only\n'
+    '- "side": pure profile, nose pointing left or right\n'
+    "If the face is toward the camera, answer front.\n"
     'Return JSON {"orientations":["front|back|side"]} with exactly 1 label.'
 )
 
@@ -85,7 +96,7 @@ def classify_parallel(
     if not frames:
         return []
 
-    n_workers = workers or _workers()
+    n_workers = workers or getattr(provider, "max_workers", None) or _workers()
     print(
         f"[*] Classifying {len(frames)} frames in parallel "
         f"(workers={n_workers}, face-first)..."
@@ -113,26 +124,38 @@ def classify_parallel(
     return list(labels)  # type: ignore[arg-type]
 
 
-# Sequential batched classify (cheaper API usage, less precise).
-def classify_batched(
+# If the clip does not start on front, re-check the first few frames alone.
+# Does not force front — only asks again with an opener-focused prompt.
+def fix_opening(
     frames: list[bytes],
+    orientations: list[str],
     provider,
     model: str,
-    *,
-    batch_size: int | None = None,
+    lookahead: int = 3,
 ) -> list[str]:
-    if not frames:
-        return []
+    if not orientations or orientations[0] == "front":
+        return orientations
 
-    size = batch_size or provider.batch_size
-    labels: list[str] = []
-    for start in range(0, len(frames), size):
-        batch = frames[start : start + size]
-        print(f"[*] Classifying frames {start}-{start + len(batch) - 1}...")
-        labels.extend(provider.classify_batch(batch, model))
-        if start + size < len(frames):
-            time.sleep(provider.pause_seconds)
-    return labels
+    updated = list(orientations)
+    end = min(len(frames), lookahead)
+    print(f"[*] Opening not front — recheck frames 0-{end - 1}...")
+
+    for i in range(end):
+        try:
+            label = provider.classify_batch(
+                [frames[i]], model, prompt=OPENING_PROMPT
+            )[0]
+        except Exception as e:
+            print(f"    frame {i}: opening recheck failed ({e})")
+            continue
+        if label != updated[i]:
+            print(f"    frame {i}: {updated[i]} -> {label}")
+            updated[i] = label
+        if label == "front":
+            break
+        if label == "back":
+            break
+    return updated
 
 
 # If a lap is open and the clip does not end on back, re-check the last

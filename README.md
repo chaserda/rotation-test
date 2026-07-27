@@ -28,9 +28,6 @@ cp .env.example .env
 python main.py videos/5rotationsTest.mp4
 python main.py videos/3rotationsTest.mp4 --provider openai
 python main.py videos/1.5rotationsTest.mp4 --provider claude
-
-# Cheaper sequential batches (less precise)
-python main.py videos/5rotationsTest.mp4 --batch
 ```
 
 Expected on provided clips:
@@ -57,7 +54,7 @@ Optional: `VLM_PROVIDER`, `CLASSIFY_WORKERS` (default `8`). See `.env.example`.
 main.py                         CLI
 rotation_counter/
   extract.py                    frame sampling
-  vlm.py                        prompts + parallel/batched classify
+  vlm.py                        prompts + parallel classify
   count.py                      deterministic counter + degree measure
   providers/                    gemini / openai / claude
 tests/test_count.py             unit tests (no API calls)
@@ -73,7 +70,6 @@ python -m unittest tests.test_count -v
 ## Design notes
 
 - **LLM never counts** — it only labels frames; Python owns cycle math
-- **Default classify mode** — one face-first call per frame, in parallel
-- **`--batch`** — fewer API calls, more neighbor-smoothing risk
+- **Classify mode** — one face-first call per frame, in parallel
 - **Open-lap finalize** — if a lap is open and the clip does not end on `back`, re-check ending frames alone (does not force `front`)
-- **Degrees / trick** — printed once at the end (unwrapped cumulative yaw)
+- **Degrees** — printed once at the end: `full * 360` plus open-lap partial (180/270)

@@ -4,12 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from rotation_counter.count import (
-    count_rotations,
-    cumulative_degrees,
-    has_open_lap,
-    measure_spin,
-)
+from rotation_counter.count import has_open_lap, measure_spin
 
 
 class TestCountRotations(unittest.TestCase):
@@ -17,30 +12,50 @@ class TestCountRotations(unittest.TestCase):
         seq = ["front"]
         for _ in range(3):
             seq += ["side", "back", "side", "front"]
-        self.assertEqual(count_rotations(seq), 3)
         spin = measure_spin(seq)
+        self.assertEqual(spin.full_rotations, 3)
         self.assertEqual(spin.degrees, 1080)
-        self.assertEqual(spin.trick, "1080")
+        self.assertFalse(spin.open_lap)
 
     def test_one_point_five_ends_back(self) -> None:
         seq = ["front", "side", "back", "side", "front", "side", "back"]
-        self.assertEqual(count_rotations(seq), 1)
+        spin = measure_spin(seq)
+        self.assertEqual(spin.full_rotations, 1)
+        self.assertTrue(spin.open_lap)
         self.assertTrue(has_open_lap(seq))
-        spin = measure_spin(seq)
         self.assertEqual(spin.degrees, 540)
-        self.assertEqual(spin.trick, "540")
 
-    def test_one_full_is_360_not_720(self) -> None:
+    def test_one_full_is_360(self) -> None:
         seq = ["front", "side", "back", "side", "front"]
-        self.assertEqual(count_rotations(seq), 1)
         spin = measure_spin(seq)
+        self.assertEqual(spin.full_rotations, 1)
         self.assertEqual(spin.degrees, 360)
-        self.assertEqual(spin.trick, "360")
 
-    # Path length looks like 720°, but only one counted full rotation.
-    # First front establishes facing; second front completes 1 full.
-    # Degrees must follow the counter (360), not raw path length.
-    def test_lead_in_before_first_front_not_extra_degrees(self) -> None:
+    # Gemini often misses the opening front (labels side instead).
+    # side → back → side → front should still count as 1 full.
+    def test_missed_opening_front_still_counts(self) -> None:
+        seq = [
+            "side",
+            "side",
+            "side",
+            "side",
+            "back",
+            "back",
+            "side",
+            "side",
+            "front",
+            "side",
+            "side",
+            "side",
+            "back",
+            "back",
+        ]
+        spin = measure_spin(seq)
+        self.assertEqual(spin.full_rotations, 1)
+        self.assertEqual(spin.degrees, 540)
+        self.assertTrue(spin.open_lap)
+
+    def test_lead_in_then_two_fronts(self) -> None:
         seq = [
             "side",
             "back",
@@ -51,24 +66,21 @@ class TestCountRotations(unittest.TestCase):
             "side",
             "front",
         ]
-        self.assertEqual(count_rotations(seq), 1)
-        self.assertEqual(cumulative_degrees(seq)[-1], 720)
         spin = measure_spin(seq)
-        self.assertEqual(spin.degrees, 360)
+        self.assertEqual(spin.full_rotations, 2)
+        self.assertEqual(spin.degrees, 720)
 
-    # Open lap ending on side: 360 + 270 = 630 (do not round up to 720).
     def test_open_side_not_counted_as_full(self) -> None:
         seq = ["front", "side", "back", "side", "front", "side", "back", "side"]
-        self.assertEqual(count_rotations(seq), 1)
         spin = measure_spin(seq)
+        self.assertEqual(spin.full_rotations, 1)
         self.assertEqual(spin.degrees, 630)
-        self.assertEqual(spin.trick, "630")
 
     def test_opening_front_not_counted(self) -> None:
-        self.assertEqual(count_rotations(["front", "side", "back"]), 0)
         spin = measure_spin(["front", "side", "back"])
+        self.assertEqual(spin.full_rotations, 0)
         self.assertEqual(spin.degrees, 180)
-        self.assertEqual(spin.trick, "180")
+        self.assertTrue(spin.open_lap)
 
 
 if __name__ == "__main__":

@@ -21,6 +21,8 @@ class GeminiProvider:
     name = "gemini"
     batch_size = 6
     pause_seconds = 0.5
+    # Free tier / flash-lite rate limits hate 8-way parallel.
+    max_workers = 3
 
     def __init__(self) -> None:
         self._client = None
